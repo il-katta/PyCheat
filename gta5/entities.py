@@ -1,47 +1,69 @@
-import modengine.entity
-import modengine.memorymanager
+from modengine.entity import Entity
+from modengine.memory.memorymanager import MemoryManager
+import threading
+GAME = 'steam'
 
 
-class GTA5Entity(modengine.entity.Entity):
-    WorldPTR_label = 'gta5!start+0xc667d8'
-    BlipPTR_label = 'GTA5.EXE+1F9A2C0'  # BlipPTR_label = 'gta5!start+0x895cb8'
-    AmmoPTR_label = 'GTA5.EXE+E89425'
-    ClipPTR_label = 'GTA5.EXE+E893E0'
-    GetPointerAddressA_label = 'gta5!start+0x14e7d78'
+class GTA5Entity(Entity):
+    if GAME == 'steam':
+        WorldPTR_label = 'GTA5.EXE+236ADE0'  # 'gta5!start+0xc667d8'
+        BlipPTR_label = 'GTA5.EXE+1F9A2C0'  # 'gta5!start+0x895cb8'
+        AmmoPTR_label = 'GTA5.EXE+E89425'
+        ClipPTR_label = 'GTA5.EXE+E893E0'
+        GetPointerAddressA_label = 'gta5!start+0x14e7d78'
+        ObjectsPTR_label = 'GTA5.EXE+1E92AB8'
+    else:
+        WorldPTR_label = 'GTA5.EXE+2366EC8'
+        BlipPTR_label = 'GTA5.EXE+1F9E750'
+        AmmoPTR_label = 'GTA5.EXE+E88EB9'
+        ClipPTR_label = 'GTA5.EXE+E88E74'
+        GetPointerAddressA_label = '??'
+        ObjectsPTR_label = 'GTA5.EXE+1E90138'
 
-    GetPointerAddressA = None
     WorldPTR = None
     BlipPTR = None
-    ClipPTR = None
     AmmoPTR = None
+    ClipPTR = None
+    GetPointerAddressA = None
+    ObjectsPTR = None
 
     def __init__(self):
-        super(GTA5Entity, self).__init__(modengine.memorymanager.MemoryManager("GTA5.EXE"))
+        super(GTA5Entity, self).__init__(MemoryManager("GTA5.EXE"))
+        self.updatePTR()
 
+    def updatePTR(self):
         self.WorldPTR = self.getPTRAddress(self.WorldPTR_label)
         self.BlipPTR = self.getPTRAddress(self.BlipPTR_label)
         self.ClipPTR = self.getPTRAddress(self.ClipPTR_label)
         self.AmmoPTR = self.getPTRAddress(self.AmmoPTR_label)
+        self.ObjectsPTR = self.getPTRAddress(self.ObjectsPTR_label)
         self.GetPointerAddressA = self.getPTRAddress(self.GetPointerAddressA_label) + 0x8
 
-    def getPTRAddress(self, PTR_label):
-        return self.mm.resolve_label(PTR_label)
-        ## -36935655
-        # addr = memory_search_aob(process.get_pid(), "gta5", HexPattern("48 8B 05 ?? ?? ?? ?? 45 ?? ?? ?? ?? 48 8B 48 08 48 85 C9 74 07"))
-        # print("aobscan", addr)
-        ## addr =  addr + readInteger(addr + 3) + 7
-        # return addr + process.read_int(addr + 3) + 7
+
 
     def self_test(self):
         for property_name in self.properties:
             print "testing %s" % property_name
-            prop_value = self.__getattr__(property_name)
-            print "%s : %s" % (property_name, str(prop_value))
-            self.__setattr__(property_name, prop_value)
-            if self.__getattr__(property_name) == prop_value:
-                print "%s: test successfull" % property_name
-            else:
-                raise Exception("%s: fail to test write" % property_name)
+            try:
+                prop_value = self.__getattr__(property_name)
+                print "%s : %s" % (property_name, str(prop_value))
+            except Exception as e:
+                print "failed to read property %s: %s" % (property_name, e.message)
+
+            try:
+                self.__setattr__(property_name, prop_value)
+            except Exception as e:
+                print "failed to write property %s: %s" % (property_name, e.message)
+
+            try:
+                if self.__getattr__(property_name) == prop_value:
+                    print "%s: test successfull" % property_name
+                else:
+                    # raise Exception("%s: fail to test write" % property_name)
+                    print "%s: test failed: %s != %s" % (
+                        property_name, str(self.__getattr__(property_name)), prop_value)
+            except Exception:
+                pass
 
     def teleport(self, x, y, z):
         assert self.has_attribute('x')
@@ -54,6 +76,273 @@ class GTA5Entity(modengine.entity.Entity):
         self._x = x
         self._y = y
         self._z = z
+
+
+
+
+class PedsEntity(GTA5Entity):
+
+    def __init__(self):
+        super(PedsEntity, self).__init__()
+        self.add(
+            name="peds_count",
+            vtype="int",
+            offsets=[0x18, 0x110],
+            address=self.ObjectsPTR,
+        )
+
+    def get_all_peds(self, filter=True):
+        for i in range(self.peds_count):
+            try:
+                ped = PedEntity(i)
+                if not filter:
+                    print "yield ped"
+                    yield  ped
+                elif ped.type == 77:
+                    print "yield ped"
+                    yield ped
+            except WindowsError:
+                pass
+        print "get_all_peds finished"
+
+    @staticmethod
+    def drop(player, ped):
+        try:
+            ped.freeze = True
+            if ped.cash < 2000:
+                ped.cash = 2000
+            ped.invisible = True
+            ped.teleport_to_player(player.z + 10)
+            ped.healt_ = 99
+            print "."
+        except WindowsError:
+            print "umh... error!"
+
+    def ped_drop(self):
+        player = PlayerEntity()
+        threads = []
+        for ped in self.get_all_peds(True):
+            p = threading.Thread(target=PedsEntity.drop, args=(player, ped))
+            threads.append(p)
+            p.start()
+
+        for p in threads:
+            p.join()
+
+
+    def kill_all_peds(self):
+        for i in range(self.peds_count):
+            print "** %s **" % (str(i))
+            try:
+                ped = PedEntity(i)
+                if ped.type == 77:
+                    ped.cash = 2000
+                    ped.healt_ = 99
+            except Exception as e:
+                print "fail"
+
+    def invisible_peds(self):
+        for i in range(self.peds_count):
+            print "** %s **" % (str(i))
+            try:
+                ped = PedEntity(i)
+                ped.invisible = True
+            except Exception as e:
+                print "fail"
+
+
+class PedEntity(GTA5Entity):
+    def __init__(self, index=0):
+        super(PedEntity, self).__init__()
+        self.add(
+            name="_",
+            vtype="float",
+            offsets=[0x18, 0x100, index * 0x10],
+            address=self.ObjectsPTR,
+        )
+
+        self.add(
+            name="healt",
+            vtype="float",
+            offsets=[0x18, 0x100, index * 0x10, 0x280],
+            address=self.ObjectsPTR,
+        )
+
+        self.add(
+            name="x",
+            vtype="float",
+            offsets=[0x18, 0x100, index * 0x10, 0x90],
+            address=self.ObjectsPTR,
+        )
+
+        self.add(
+            name="y",
+            vtype="float",
+            offsets=[0x18, 0x100, index * 0x10, 0x94],
+            address=self.ObjectsPTR,
+        )
+
+        self.add(
+            name="z",
+            vtype="float",
+            offsets=[0x18, 0x100, index * 0x10, 0x98],
+            address=self.ObjectsPTR,
+        )
+
+        self.add(
+            name="_x",
+            vtype="float",
+            offsets=[0x18, 0x100, index * 0x10, 0x110],
+            address=self.ObjectsPTR,
+        )
+
+        self.add(
+            name="_y",
+            vtype="float",
+            offsets=[0x18, 0x100, index * 0x10, 0x114],
+            address=self.ObjectsPTR,
+        )
+
+        self.add(
+            name="_z",
+            vtype="float",
+            offsets=[0x18, 0x100, index * 0x10, 0x118],
+            address=self.ObjectsPTR,
+        )
+
+        self.add(
+            name="_x_",
+            vtype="float",
+            offsets=[0x18, 0x100, index * 0x10, 0x120],
+            address=self.ObjectsPTR,
+        )
+
+        self.add(
+            name="_y_",
+            vtype="float",
+            offsets=[0x18, 0x100, index * 0x10, 0x124],
+            address=self.ObjectsPTR,
+        )
+
+        self.add(
+            name="_z_",
+            vtype="float",
+            offsets=[0x18, 0x100, index * 0x10, 0x128],
+            address=self.ObjectsPTR,
+        )
+
+        self.add(
+            name="__x",
+            vtype="float",
+            offsets=[0x18, 0x100, index * 0x10, 0x160],
+            address=self.ObjectsPTR,
+        )
+
+        self.add(
+            name="__y",
+            vtype="float",
+            offsets=[0x18, 0x100, index * 0x10, 0x164],
+            address=self.ObjectsPTR,
+        )
+
+        self.add(
+            name="__z",
+            vtype="float",
+            offsets=[0x18, 0x100, index * 0x10, 0x168],
+            address=self.ObjectsPTR,
+        )
+        self.add(
+            name="__z__",
+            vtype="float",
+            offsets=[0x18, 0x100, index * 0x10, 0x280],
+            address=self.ObjectsPTR,
+        )
+
+        self.add(
+            name="cash",
+            vtype="int",
+            offsets=[0x18, 0x100, index * 0x10, 0x15D4],
+            address=self.ObjectsPTR,
+        )
+
+        self.add(
+            name="peds_count",
+            vtype="int",
+            offsets=[0x18, 0x110],
+            address=self.ObjectsPTR,
+        )
+
+        self.add(
+            name="type",
+            vtype="byte",
+            offsets=[0x18, 0x100, index * 0x10, 0x20, 0x270],
+            address=self.ObjectsPTR,
+        )
+
+        self.add(
+            name="freeze",
+            vtype="bool",
+            booltype="byte",
+            offsets=[0x18, 0x100, index * 0x10, 0x2E],
+            address=self.ObjectsPTR,
+            true_value=3,
+            false_value=1
+        )
+
+        self.add(
+            name="invisible",
+            vtype="bool",
+            booltype="byte",
+            offsets=[0x18, 0x100, index * 0x10, 0x2C],
+            address=self.ObjectsPTR,
+            true_value=0,
+            false_value=7
+        )
+
+        self.add(
+            name="healt_",
+            vtype="int",
+            offsets=[0x18, 0x100, index * 0x10, 0x280],
+            address=self.ObjectsPTR,
+        )
+
+    def teleport(self, x, y, z):
+        try:
+            self.x = x
+            self._x = x
+            self._x_ = x
+            self.__x = x
+        except WindowsError:
+            pass
+
+        try:
+            self.y = y
+            self._y = y
+            self._y_ = y
+            self.__y = y
+        except WindowsError:
+            pass
+
+        try:
+            self.__z__ = z
+            self.z = z
+            self._z = z
+            self._z_ = z
+            self.__z = z
+        except WindowsError:
+            pass
+
+    def teleport_to_player(self, z=None):
+        player = PlayerEntity()
+        x = player.x
+        y = player.y
+        if z == None:
+            z = player.z
+
+        self.teleport(x, y, z)
+
+
+
 
 class WeaponEntity(GTA5Entity):
     def __init__(self):
@@ -91,6 +380,49 @@ class VehicleEntity(GTA5Entity):
             vtype="float",
             address=self.WorldPTR,
         )
+
+        self.add(
+            name="accelleration",
+            offsets=[0x8, 0xD28, 0x8A8, 0x4C],
+            vtype="float",
+            address=self.WorldPTR,
+        )
+
+        self.add(
+            name="breakforce",
+            offsets=[0x8, 0xD28, 0x8A8, 0x6C],
+            vtype="float",
+            address=self.WorldPTR,
+        )
+
+        self.add(
+            name="traction",
+            offsets=[0x8, 0xD28, 0x8A8, 0x72],
+            vtype="float",
+            address=self.WorldPTR,
+        )
+
+        self.add(
+            name="demolition",
+            offsets=[0x8, 0xD28, 0x8A8, 0xF8],
+            vtype="float",
+            address=self.WorldPTR,
+        )
+
+        self.add(
+            name="suspension",
+            offsets=[0x8, 0xD28, 0x8A8, 0xBC],
+            vtype="float",
+            address=self.WorldPTR,
+        )
+
+        self.add(
+            name="gravity",
+            offsets=[0x8, 0xD28, 0x8A8, 0xB7C],
+            vtype="float",
+            address=self.WorldPTR,
+        )
+
         '''
         self.add(
             name="velocity",
@@ -151,6 +483,7 @@ class VehicleEntity(GTA5Entity):
             offsets=[0x8, 0xD28, 0x189],
         )
 
+
 class WayPointEntity(GTA5Entity):
     def get_position(self):
         pointer = self.BlipPTR
@@ -167,6 +500,44 @@ class WayPointEntity(GTA5Entity):
                         return (x, y)
                 except WindowsError:
                     pass
+
+
+class AttackersEntity(GTA5Entity):
+    def __init__(self, index=0):
+        super(AttackersEntity, self).__init__()
+
+        self.add(
+            name="healt",
+            offsets=[0x8, 0x2A8, (index * 0x18), 0x280],
+            vtype="float",
+            address=self.WorldPTR,
+        )
+
+        self.add(
+            name="max_healt",
+            offsets=[0x8, 0x2A8, (index * 0x18), 0x2A0],
+            vtype="float",
+            address=self.WorldPTR,
+        )
+
+        self.add(
+            name="x",
+            offsets=[0x8, 0x2A8, (index * 0x18), 0x110],
+            vtype="float",
+            address=self.WorldPTR,
+        )
+        self.add(
+            name="y",
+            offsets=[0x8, 0x2A8, (index * 0x18), 0x114],
+            vtype="float",
+            address=self.WorldPTR,
+        )
+        self.add(
+            name="z",
+            offsets=[0x8, 0x2A8, (index * 0x18), 0x118],
+            vtype="float",
+            address=self.WorldPTR,
+        )
 
 
 class PlayerEntity(GTA5Entity):
@@ -194,7 +565,7 @@ class PlayerEntity(GTA5Entity):
             name="max_healt_m",
             vtype="float",
             address=self.GetPointerAddressA,
-            offsets=[350],
+            offsets=[0x350],
         )
 
         self.add(
@@ -287,38 +658,38 @@ class PlayerEntity(GTA5Entity):
             name="x",
             vtype="float",
             address=self.WorldPTR,
-            offsets=[8, 0x30, 0x50]
+            offsets=[0x8, 0x30, 0x50]
         )
         self.add(
             name="y",
             vtype="float",
             address=self.WorldPTR,
-            offsets=[8, 0x30, 0x54]
+            offsets=[0x8, 0x30, 0x54]
         )
         self.add(
             name="z",
             vtype="float",
             address=self.WorldPTR,
-            offsets=[8, 0x30, 0x58]
+            offsets=[0x8, 0x30, 0x58]
         )
 
         self.add(
             name="_x",
             vtype="float",
             address=self.WorldPTR,
-            offsets=[8, 0x90]
+            offsets=[0x8, 0x90]
         )
         self.add(
             name="_y",
             vtype="float",
             address=self.WorldPTR,
-            offsets=[8, 0x94]
+            offsets=[0x8, 0x94]
         )
         self.add(
             name="_z",
             vtype="float",
             address=self.WorldPTR,
-            offsets=[8, 0x98]
+            offsets=[0x8, 0x98]
         )
 
         self.add(
@@ -329,8 +700,6 @@ class PlayerEntity(GTA5Entity):
             true_value=0x0,
             false_value=0x10
         )
-
-
 
     @property
     def veihcle(self):
@@ -343,10 +712,18 @@ class PlayerEntity(GTA5Entity):
         waypointEntity = WayPointEntity()
         waypointPosition = waypointEntity.get_position()
         if waypointPosition:
-            #if self.in_vehicle and self.veihcle:
+            # if self.in_vehicle and self.veihcle:
             if self.veihcle:
                 self.veihcle.teleport(waypointPosition[0], waypointPosition[1], -210)
 
             self.teleport(waypointPosition[0], waypointPosition[1], -210)
         else:
             print "no waypoint position"
+
+    # thanks to Zeziroth: your code helps me to fix this
+    def kill_some_attackers(self):
+        for i in range(3):
+            try:
+                AttackersEntity(i).healt = 0
+            except WindowsError:
+                pass

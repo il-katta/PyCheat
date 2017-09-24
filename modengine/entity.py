@@ -6,9 +6,9 @@ class Entity(object):
         self.properties = {}
         self.mm = memory_manager
 
-    def add(self, name, offsets=None, address=None, vtype=None, size=None, true_value=1, false_value=0):
+    def add(self, name, offsets=None, address=None, vtype=None, size=None, true_value=1, false_value=0, booltype='int'):
         assert vtype == None or vtype in ["float", "string", "int",
-                                          "bool"], "type must be 'float', 'string', 'bool' or 'int'"
+                                          "bool", "byte"], "type must be 'float', 'string', 'bool', 'byte' or 'int'"
         assert name not in self.properties.keys(), "property %s already exists" % name
 
         self.properties[name] = {
@@ -18,7 +18,8 @@ class Entity(object):
             'type': vtype,
             'size': size,
             'true_value': true_value,
-            'false_value': false_value
+            'false_value': false_value,
+            'booltype': booltype
         }
         # if type(self.properties[name]['offsets']) is not list:
 
@@ -31,47 +32,64 @@ class Entity(object):
         else:
             self.properties[name]['address'] = self.properties[name]['_address']
 
-    def write(self, name, value):
+    def getPTRAddress(self, PTR_label):
+        return self.mm.resolve_label(PTR_label)
+
+    def write(self, name, value, type=None):
         assert self.properties is not None, "object not initialized"
         assert self.has_attribute(name), "Property doesn't exists"
 
         property = self.properties[name]
+        if type is None:
+            type = property['type']
 
-        if property['type'] == 'float':
+        if type == 'float':
             return self.mm.write_float(property['address'], value)
 
-        elif property['type'] == 'string':
+        elif type == 'string':
             return self.mm.write_string(property['address'], value, property['size'])
 
-        elif property['type'] == 'int':
+        elif type == 'int':
             return self.mm.write_int(property['address'], value)
 
-        elif property['type'] == 'bool':
-            return self.mm.write_bool(property['address'], value, property['true_value'], property['false_value'])
+        elif type == 'bool':
+            if value:
+                return self.write(name, property['true_value'], property['booltype'])
+            else:
+                return self.write(name, property['true_value'], property['booltype'])
 
+        elif type == 'byte':
+            return self.mm.write_byte(property['address'], value)
         else:
             raise NotImplementedError()
 
-    def read(self, name):
+    def read(self, name, type=None):
         assert self.properties is not None, "object not initialized"
         assert self.has_attribute(name), "Property doesn't exists"
         property = self.properties[name]
 
-        if property['type'] == 'float':
+        if type is None:
+            type = property['type']
+
+        if type == 'float':
             return self.mm.read_float(property['address'])
 
-        elif property['type'] == 'string':
+        elif type == 'string':
             return self.mm.read_string(property['address'], property['size'])
 
-        elif property['type'] == 'int':
+        elif type == 'int':
             return self.mm.read_int(property['address'])
 
-        elif property['type'] == 'bool':
-            return self.mm.read_bool(
-                property['address'],
-                true_value=property['true_value'],
-                false_value=property['false_value']
-            )
+        elif type == 'bool':
+            v = self.read(name, property['booltype'])
+            if v == property['true_value']:
+                return True
+            if v == property['false_value']:
+                return False
+            return None
+
+        elif type == 'byte':
+            return self.mm.read_byte(property['address'])
 
         else:
             raise NotImplementedError()

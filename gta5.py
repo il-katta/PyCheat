@@ -1,7 +1,7 @@
 import sys
 from time import sleep
 
-from gta5.entities import PlayerEntity, VehicleEntity, WayPointEntity
+from gta5.entities import PlayerEntity, VehicleEntity, PedsEntity
 
 if __name__ == '__main__':
     cmd = ""
