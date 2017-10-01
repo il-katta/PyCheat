@@ -7,25 +7,34 @@ from functions import *
 class Memory(object):
     def __init__(self, pid):
         self.pid = pid
-        self.processHandle = OpenProcess(0x10, False, self.pid)
+        #self.processHandle = OpenProcess(0x10, False, self.pid)
+        self.processHandle = OpenProcess(PROCESS_ALL_ACCESS, False, self.pid)
 
     def read(self, address, type='uint', maxlen=50, errors='raise'):
-        if type == 's' or type == 'string':
-            s = self.read_bytes(int(address), bytes=maxlen)
-            news = ''
-            for c in s:
-                if c == '\x00':
-                    continue
-                    # return news
-                news += c
-            if errors == 'ignore':
-                return news
-            raise ProcessException('string > maxlen')
-        else:
-            if type == 'bytes' or type == 'b':
-                return self.read_bytes(int(address), bytes=maxlen)
-            s, l = type_unpack(type)
-            return struct.unpack(s, self.read_bytes(int(address), bytes=l))[0]
+        for i in range(5):
+            try:
+                if type == 's' or type == 'string':
+                    s = self.read_bytes(int(address), bytes=maxlen)
+                    news = ''
+                    for c in s:
+                        if c == '\x00':
+                            continue
+                            # return news
+                        news += c
+                    if errors == 'ignore':
+                        return news
+                    raise ProcessException('string > maxlen')
+                else:
+                    if type == 'bytes' or type == 'b':
+                        return self.read_bytes(int(address), bytes=maxlen)
+                    s, l = type_unpack(type)
+                    b = self.read_bytes(int(address), bytes=l)
+                    if len(b) < 4:
+                        raise ProcessException("invalid value: '{}'".format(str(b)))
+                    return struct.unpack(s, b)[0]
+            except Exception:
+                if i > 3:
+                    raise
 
     def write(self, address, data, type='uint'):
         if type != 'bytes':

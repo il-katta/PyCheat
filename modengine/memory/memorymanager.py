@@ -1,5 +1,6 @@
 import re
 
+from functions import get_size_and_entry_point
 from memory import Memory, ProcessException
 
 
@@ -65,9 +66,22 @@ class MemoryManager(Memory):
                 return False
         return None
 
-    def resolve_label(self, PTRLabel):
-        (module, offset) = self.split_label(PTRLabel)
+    def getProcedureAddress(self, base):
+        (_,entrypoiny) = get_size_and_entry_point(self.processHandle, base)
+        return entrypoiny
+
+    def resolve_label(self, label):
+        (module, procedure, offset) = self.split_label(label)
         module_addr = self.getModuleAddress(module)
+
+        if procedure:
+            if procedure == 'start':
+                module_addr = self.getProcedureAddress(module_addr)
+            else:
+                raise NotImplementedError("procedure: %s" % procedure)
+        else:
+            procedure = 0
+        #print("LABEL: {} | module: {}, offset: {}".format(label, module_addr, offset))
         return module_addr + offset
 
     def is_hex(self, hexstr):
@@ -88,9 +102,28 @@ class MemoryManager(Memory):
         label = label.replace('\r', '')
         label = label.replace('\n', '')
 
+        regexp = re.compile("([A-Za-z0-9.]+)(!(\w+))?(\+([0-9a-fA-F]+))?")
+
+        if not regexp.match(label):
+            raise ValueError("invalid label: '%s'" % label)
+
+        (_, module, _, procedure, _, offset, _) = regexp.split(label)
+
+        offset = self.to_int(offset)
+
+        return (module, procedure, offset)
+        '''
+        module = None
+        offset = None
+        procedure = None
+
         if "+" in label:
             module, offset = label.split('+')
-        else:
+            if "!" in module:
+                module, procedure = module.split('!')
+        elif "!" in label:
+            module, procedure = label.split('!')
+        if "!" not in label and "+" not in label:
             module = label
             offset = "0x0"
 
@@ -99,7 +132,5 @@ class MemoryManager(Memory):
 
         offset = self.to_int(offset)
 
-        return (module, offset)
-
-
-
+        return (module, procedure, offset)
+        '''

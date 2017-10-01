@@ -7,8 +7,8 @@ class Entity(object):
         self.mm = memory_manager
 
     def add(self, name, offsets=None, address=None, vtype=None, size=None, true_value=1, false_value=0, booltype='int'):
-        assert vtype == None or vtype in ["float", "string", "int",
-                                          "bool", "byte"], "type must be 'float', 'string', 'bool', 'byte' or 'int'"
+        assert vtype is not None and vtype in ["float", "string", "int", "bool", "byte", "uint"], \
+            "type must be 'float', 'string', 'bool', 'byte', 'uint' or 'int'"
         assert name not in self.properties.keys(), "property %s already exists" % name
 
         self.properties[name] = {
@@ -38,7 +38,7 @@ class Entity(object):
     def write(self, name, value, type=None):
         assert self.properties is not None, "object not initialized"
         assert self.has_attribute(name), "Property doesn't exists"
-
+        # print ("of %s write %s" % (self.__class__.__name__, name))
         property = self.properties[name]
         if type is None:
             type = property['type']
@@ -56,10 +56,14 @@ class Entity(object):
             if value:
                 return self.write(name, property['true_value'], property['booltype'])
             else:
-                return self.write(name, property['true_value'], property['booltype'])
+                return self.write(name, property['false_value'], property['booltype'])
 
         elif type == 'byte':
             return self.mm.write_byte(property['address'], value)
+
+        elif type == 'uint':
+            return self.mm.write_uint(property['address'], value)
+
         else:
             raise NotImplementedError()
 
@@ -67,7 +71,7 @@ class Entity(object):
         assert self.properties is not None, "object not initialized"
         assert self.has_attribute(name), "Property doesn't exists"
         property = self.properties[name]
-
+        # print ("of %s read %s" % (self.__class__.__name__, name))
         if type is None:
             type = property['type']
 
@@ -91,12 +95,15 @@ class Entity(object):
         elif type == 'byte':
             return self.mm.read_byte(property['address'])
 
+        elif type == 'uint':
+            return self.mm.read_uint(property['address'])
+
         else:
             raise NotImplementedError()
 
     def __getattr__(self, name):
         if not self.has_attribute(name):
-            raise AttributeError
+            return super(Entity, self).__getattribute__(name)
 
         return self.read(name)
 

@@ -1,3 +1,32 @@
+# from winappdbg/win32/kernel32.py:139
+
+# Standard access rights
+DELETE                      = (0x00010000L)
+READ_CONTROL                = (0x00020000L)
+WRITE_DAC                   = (0x00040000L)
+WRITE_OWNER                 = (0x00080000L)
+SYNCHRONIZE                 = (0x00100000L)
+STANDARD_RIGHTS_REQUIRED    = (0x000F0000L)
+STANDARD_RIGHTS_READ        = (READ_CONTROL)
+STANDARD_RIGHTS_WRITE       = (READ_CONTROL)
+STANDARD_RIGHTS_EXECUTE     = (READ_CONTROL)
+STANDARD_RIGHTS_ALL         = (0x001F0000L)
+SPECIFIC_RIGHTS_ALL         = (0x0000FFFFL)
+
+# from winappdbg/win32/kernel32.py:199
+
+# The values of PROCESS_ALL_ACCESS and THREAD_ALL_ACCESS were changed in Vista/2008
+PROCESS_ALL_ACCESS_NT = (STANDARD_RIGHTS_REQUIRED | SYNCHRONIZE | 0xFFF)
+PROCESS_ALL_ACCESS_VISTA = (STANDARD_RIGHTS_REQUIRED | SYNCHRONIZE | 0xFFFF)
+THREAD_ALL_ACCESS_NT = (STANDARD_RIGHTS_REQUIRED | SYNCHRONIZE | 0x3FF)
+THREAD_ALL_ACCESS_VISTA = (STANDARD_RIGHTS_REQUIRED | SYNCHRONIZE | 0xFFFF)
+#if NTDDI_VERSION < NTDDI_VISTA:
+#    PROCESS_ALL_ACCESS = PROCESS_ALL_ACCESS_NT
+#    THREAD_ALL_ACCESS = THREAD_ALL_ACCESS_NT
+#else:
+PROCESS_ALL_ACCESS = PROCESS_ALL_ACCESS_VISTA
+THREAD_ALL_ACCESS = THREAD_ALL_ACCESS_VISTA
+
 # from memorpy/WinStructures.py:0
 
 # Author: Nicolas VERDIER
@@ -266,6 +295,49 @@ def Module32Next(hSnapshot, me=None):
             return None
         raise ctypes.WinError()
     return me
+
+# typedef struct _MODULEINFO {
+#   LPVOID lpBaseOfDll;
+#   DWORD  SizeOfImage;
+#   LPVOID EntryPoint;
+# } MODULEINFO, *LPMODULEINFO;
+class MODULEINFO(Structure):
+    _fields_ = [
+        ("lpBaseOfDll",     LPVOID),    # remote pointer
+        ("SizeOfImage",     DWORD),
+        ("EntryPoint",      LPVOID),    # remote pointer
+]
+LPMODULEINFO = POINTER(MODULEINFO)
+
+# BOOL WINAPI GetModuleInformation(
+#   __in   HANDLE hProcess,
+#   __in   HMODULE hModule,
+#   __out  LPMODULEINFO lpmodinfo,
+#   __in   DWORD cb
+# );
+def GetModuleInformation(hProcess, hModule, lpmodinfo = None):
+    _GetModuleInformation = windll.psapi.GetModuleInformation
+    _GetModuleInformation.argtypes = [HANDLE, HMODULE, LPMODULEINFO, DWORD]
+    _GetModuleInformation.restype = bool
+    _GetModuleInformation.errcheck = RaiseIfZero
+
+    if lpmodinfo is None:
+        lpmodinfo = MODULEINFO()
+    _GetModuleInformation(hProcess, hModule, byref(lpmodinfo), sizeof(lpmodinfo))
+    return lpmodinfo
+
+PROCESS_QUERY_INFORMATION         = 0x0400
+PROCESS_VM_READ                   = 0x0010
+def get_size_and_entry_point(hProcess, base): # entrypoint!
+
+        try:
+            mi     = GetModuleInformation(hProcess, base)
+            return(mi.SizeOfImage, mi.EntryPoint)
+        except WindowsError, e:
+            raise Exception(
+                "Cannot get size and entry point of module reason: %s"\
+                % (e.strerror), RuntimeWarning)
+
 
 # from winappdbg\win32\kernel32.py:1970
 
