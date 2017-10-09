@@ -22,11 +22,18 @@ class PedEntity(GTA5Entity):
             offsets=[0x18, 0x100, index * 0x10, 0x280],
             address=self.ObjectsPTR,
         )
+        self.add(
+            name="max_healt",
+            vtype="float",
+            offsets=[0x18, 0x100, index * 0x10, 0x2A0],
+            address=self.ObjectsPTR,
+        )
+
 
         self.add(
             name="x",
             vtype="float",
-            offsets=[0x18, 0x100, index * 0x10, 0x90],
+            offsets=[0x18, 0x100, index * 0x10, 0x90], # 0x30 0x50 0x90
             address=self.ObjectsPTR,
         )
 
@@ -114,20 +121,42 @@ class PedEntity(GTA5Entity):
         )
 
         self.add(
+            name="god",
+            vtype="bool",
+            booltype="byte",
+            offsets=[0x18, 0x100, index * 0x10, 0x189],
+            address=self.ObjectsPTR,
+        )
+
+        self.add(
             name="player_healt",
             offsets=[0x8, 0x280],
             vtype="float",
             address=self.WorldPTR,
         )
 
+        self.add(
+            name="player_info_ptr",
+            vtype="bool",
+            booltype="byte",
+            offsets=[0x18, 0x100, index * 0x10, 0x10B8],
+            address=self.ObjectsPTR,
+        )
+
+        self.add(
+            name="player_name",
+            vtype="string",
+            size=20,
+            offsets=[0x18, 0x100, index * 0x10, 0x10B8, 0x7C],
+            address=self.ObjectsPTR,
+        )
+
+
     def is_player(self):
+        #return  self.player_healt == self.healt and ++self.player_healt == self.healt
         # return (ped.c >> 24) == 96:
         # return (ped.c << 11 >> 25) in [8320, 106754, 8750]:
-        player_healt = self.player_healt
-        self.player_healt = 888
-        ret = (self.healt == 888)
-        self.player_healt = player_healt
-        return ret
+        return self.player_info_ptr != 0
 
     def teleport(self, x, y, z, freeze=False):
         # freeze default False

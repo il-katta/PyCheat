@@ -104,7 +104,6 @@ class Entity(object):
     def __getattr__(self, name):
         if not self.has_attribute(name):
             return super(Entity, self).__getattribute__(name)
-
         return self.read(name)
 
     def __setattr__(self, name, value):

@@ -1,5 +1,5 @@
 import threading
-from gta5.entities import PlayerEntity, VehicleEntity, PedsEntity
+from gta5.entities import PlayerEntity, VehicleEntity, PedsEntity, WeaponEntity, GTA5Entity
 
 
 def threaded(fn):
@@ -21,11 +21,10 @@ class Player(object):
     z = 0
     radar_hide_mode = False
 '''
-
 class Player(PlayerEntity):
 
     _flymode = False
-    fly_step = 0.5
+    flymode_speed = 0.5
     fly_x = 0
     fly_y = 0
     fly_z = 0
@@ -46,8 +45,11 @@ class Player(PlayerEntity):
             #sleep(0.01)
 
     def stop_flymode(self):
-        if self._flymode:
+        if self.flymode:
             self._flymode = False
+            # todo: wait for thread ?
+            # take off
+            self.z = -210 
             self.freeze = False
 
     @property
@@ -61,34 +63,34 @@ class Player(PlayerEntity):
         else:
             self.stop_flymode()
 
-    def fly_forward(self):
+    def fly_west(self):
         if self.flymode:
-            self.fly_x += self.fly_step
+            self.fly_x -= self.flymode_speed
         return self.flymode
 
-    def fly_backward(self):
+    def fly_east(self):
         if self.flymode:
-            self.fly_x -= self.fly_step
+            self.fly_x += self.flymode_speed
         return self.flymode
 
-    def fly_left(self):
+    def fly_north(self):
         if self.flymode:
-            self.fly_y += self.fly_step
+            self.fly_y += self.flymode_speed
         return self.flymode
 
-    def fly_right(self):
+    def fly_south(self):
         if self.flymode:
-            self.fly_y -= self.fly_step
+            self.fly_y -= self.flymode_speed
         return self.flymode
 
     def fly_up(self):
         if self.flymode:
-            self.fly_z += self.fly_step
+            self.fly_z += self.flymode_speed
         return self.flymode
 
     def fly_down(self):
         if self.flymode:
-            self.fly_z -= self.fly_step
+            self.fly_z -= self.flymode_speed
         return self.flymode
 
     @property
@@ -108,8 +110,8 @@ class Player(PlayerEntity):
             self.god = False
 
 
+#class PedDropper(object):
 class PedDropper(PedsEntity):
-
     _ped_drop = False
 
     _z_offset = 3
@@ -123,7 +125,7 @@ class PedDropper(PedsEntity):
 
     def __init__(self):
         super(PedDropper, self).__init__()
-        self.player = PlayerEntity()
+        self.player = Player()
 
     @property
     def ped_drop(self):
@@ -167,10 +169,58 @@ class PedDropper(PedsEntity):
 
     def stop_ped_drop(self):
         self._ped_drop = False
+    
+
+
+
+class EntitySafeExecDecorator(object):
+    _entity = None
+    EntityClass = None
+    
+    def __init__(self, EntityClass):
+        self.EntityClass = EntityClass
+    
+    @property
+    def entity(self):
+        if not self._entity:
+            try:
+                self._entity = self.EntityClass()
+            except:
+                pass
+        return self._entity
+
+    def __getattr__(self, name):
+        if not self.entity:
+            return None
+        
+        if self.entity.has_attribute(name):
+            try:
+                return self.entity.read(name)
+            except:
+                pass
+        else:
+            if hasattr(self.entity, name):
+                return getattr(self.entity, name, None)
+
+        return None
+
+    def __setattr__(self, name, arg):
+        if not self.entity:
+            return
+        
+        if self.entity.has_attribute(name):
+            try:
+                self.entity.write(name, arg)
+            except:
+                return None
+        else:
+            if hasattr(self.entity, name):
+                setattr(self.entity, name, arg)
+
+        return None
 
 player = Player()
 ped_dropper = PedDropper()
-
-
-player.wanted_level = 1
-print player.wanted_level
+weapon = WeaponEntity()
+#vehicle = EntitySafeExecDecorator(VehicleEntity)
+#vehicle = VehicleEntity()

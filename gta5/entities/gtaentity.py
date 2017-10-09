@@ -14,16 +14,23 @@ class GTA5Entity(Entity):
         NamePTR_label = 'GTA5.EXE+0274E7A8'
         PlayerListPTR_label = 'GTA5.EXE+1CE49C0'
         GloablPTR_label = 'GTA5.EXE+16EB380'
+        WaypointPTR_label = 'GTA5.EXE+1FC0C70'
+        ObjectivePTR_label = 'GTA5.EXE+1FC0D20'
     else:
         WorldPTR_label = 'GTA5.EXE+2366EC8'
         BlipPTR_label = 'GTA5.EXE+1F9E750'
         AmmoPTR_label = 'GTA5.EXE+E88EB9'
         ClipPTR_label = 'GTA5.EXE+E88E74'
-        GetPointerAddressA_label = '??'
+        GetPointerAddressA_label = 'GTA5.EXE!start+14e5828'
         ObjectsPTR_label = 'GTA5.EXE+1E90138'
         NamePTR_label = 'GTA5.EXE+02749450'
         PlayerListPTR_label = 'GTA5.EXE+1CE0AA0'
         GloablPTR_label = 'GTA5.EXE+16F5EF0'
+        WaypointPTR_label = 'GTA5.EXE+1FBCAE0'
+        ObjectivePTR_label = 'GTA5.EXE+1FBCB90'
+
+    # Waypoint: GTA5.exe + 1FBCAE0
+    # Objective: GTA5.exe + 1FBCB90
 
     _WorldPTR = None
     _BlipPTR = None
@@ -34,6 +41,7 @@ class GTA5Entity(Entity):
     _NamePTR = None
     _PlayerListPTR = None
     _GloablPTR = None
+
     def __init__(self):
         super(GTA5Entity, self).__init__(MemoryManager("GTA5.EXE"))
 
@@ -119,12 +127,16 @@ class GTA5Entity(Entity):
         assert self.has_attribute('x'), "no x attribute"
         assert self.has_attribute('y'), "no y attribute"
         assert self.has_attribute('z'), "no z attribute"
-        if freeze:
-            self.freeze = True
+        try:
+            if freeze:
+                self.freeze = True
 
-        self.x = x
-        self.y = y
-        self.z = z
+            self.x = x
+            self.y = y
+            self.z = z
 
-        if freeze:
-            self.freeze = False
+            if freeze:
+                self.freeze = False
+            return True
+        except Exception:
+            return False

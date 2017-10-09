@@ -34,7 +34,7 @@ class VehicleEntity(GTA5Entity):
 
         self.add(
             name="traction",
-            offsets=[0x8, 0xD28, 0x8A8, 0x72],
+            offsets=[0x8, 0xD28, 0x8A8, 0x90],
             vtype="float",
             address=self.WorldPTR,
         )
@@ -55,7 +55,7 @@ class VehicleEntity(GTA5Entity):
 
         self.add(
             name="gravity",
-            offsets=[0x8, 0xD28, 0x8A8, 0xB7C],
+            offsets=[0x8, 0xD28, 0xBAC],
             vtype="float",
             address=self.WorldPTR,
         )
@@ -69,7 +69,6 @@ class VehicleEntity(GTA5Entity):
             true_value=3,
             false_value=1
         )
-
 
         self.add(
             name="x",
@@ -116,3 +115,5 @@ class VehicleEntity(GTA5Entity):
             offsets=[0x8, 0xD28, 0x189],
         )
 
+        # bombs 1208
+        # flare 1204
